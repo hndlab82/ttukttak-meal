@@ -78,6 +78,21 @@
     welcomed: false,
     dials: { efficiency: 'normal', budget: 'normal', repeat: '2w' }
   };
+  // ── 자동 보관본: 하루에 한 번, 앱이 데이터를 읽기 전에 원래 모습 그대로 한 부 복사해 둔다 (최근 3개) ──
+  // 새 버전이 옛 데이터를 잘못 읽는 일이 생겨도 이걸로 되살릴 수 있다.
+  var SAFETY_KEY = 'meal.safety';
+  (function keepSafetyCopy() {
+    try {
+      var raw = { settings: localStorage.getItem(KEY.settings), plans: localStorage.getItem(KEY.plans), excluded: localStorage.getItem(KEY.excluded), custom: localStorage.getItem(KEY.custom) };
+      if (!raw.plans || raw.plans === '{}') return;
+      var list = JSON.parse(localStorage.getItem(SAFETY_KEY) || '[]');
+      var today = new Date().toISOString().slice(0, 10);
+      if (list.length && list[0].day === today) return;
+      list.unshift({ day: today, at: new Date().toISOString(), raw: raw });
+      localStorage.setItem(SAFETY_KEY, JSON.stringify(list.slice(0, 3)));
+    } catch (e) { /* 저장 공간이 모자라면 건너뛴다 */ }
+  })();
+
   var S = {
     settings: null,
     plans: load(KEY.plans, {}),
@@ -915,6 +930,30 @@
     };
     reader.readAsText(file);
   }
+  function safetyCopies() {
+    try { return JSON.parse(localStorage.getItem(SAFETY_KEY) || '[]'); } catch (e) { return []; }
+  }
+  function renderSafety() {
+    var list = safetyCopies();
+    $('safety-list').innerHTML = list.length
+      ? list.map(function (c, i) {
+          var weeks = 0;
+          try { weeks = Object.keys(JSON.parse(c.raw.plans || '{}')).length; } catch (e) { /* 무시 */ }
+          return '<button type="button" class="chip" data-act="safety" data-idx="' + i + '">' + esc(fmtTime(c.at)) + ' 보관본 · 식단 ' + weeks + '주</button>';
+        }).join('')
+      : '<span class="note">아직 없어요. 내일부터 하루에 하나씩 생겨요.</span>';
+  }
+  function openSafety(i) {
+    var c = safetyCopies()[i];
+    if (!c) return;
+    function parse(v, d) { try { return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+    openRestoreSheet({
+      app: 'ttukttak-meal', version: 2, exported_at: c.at,
+      settings: parse(c.raw.settings, null), plans: parse(c.raw.plans, {}),
+      excluded: parse(c.raw.excluded, []), custom: parse(c.raw.custom, []), logs: S.logs
+    }, '자동 보관본 (' + fmtTime(c.at) + ')');
+  }
+
   function restoreBackup(data) {
     S.plans = data.plans || {};
     Object.keys(S.plans).forEach(function (w) { normalizePlan(S.plans[w]); });
@@ -1044,6 +1083,7 @@
     if (p) renderPrint(); else $('print-sheet').innerHTML = '';
     $('log-count').textContent = '사용 기록 ' + S.logs.length + '건 · 저장된 식단 ' + Object.keys(S.plans).length + '주치';
     if ($('set-share') !== document.activeElement) $('set-share').checked = S.settings.shareLogs !== false;
+    renderSafety();
   }
 
   // 메뉴 이름 왼쪽에 붙는 작은 로고 (제철·일품·특식). 이름의 가운데 정렬을 해치지 않게 바깥에 걸린다.
@@ -1631,6 +1671,7 @@
     else if (act === 'edit') openMenuSheet(Number(t.dataset.i), t.dataset.k);
     else if (act === 'day') openDaySheet(t.dataset.date);
     else if (act === 'wipe') openWipeSheet(t.dataset.scope);
+    else if (act === 'safety') openSafety(Number(t.dataset.idx));
     else if (act === 'fixed') openFixedSheet(Number(t.dataset.i), Number(t.dataset.r));
     else if (act === 'add-row') openAddRowSheet(Number(t.dataset.i));
     else if (act === 'remove-row') removeRow(Number(t.dataset.i), Number(t.dataset.r));
