@@ -457,10 +457,26 @@ textarea { resize: vertical; }
 @media (max-width: 60rem) {
   .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+/* 휴대폰: 1~4 순서 안내를 버튼 한 줄(2×2)로 줄여서 첫 화면에 식단이 보이게 */
 @media (max-width: 36rem) {
-  .steps { grid-template-columns: 1fr; }
+  .app { gap: 0.7rem; padding-block: 0.8rem 3rem; }
+  .brand { font-size: 1.6rem; }
+  .size-pick button { min-width: 2.4rem; height: 2.4rem; }
+  .weekbar { padding: 0.4rem; }
+  .week-label strong { font-size: 1.5rem; }
+  .weekbar .nav-btn { padding: 0 0.6rem; min-height: 2.5rem; }
+  .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem; }
+  .step { border: 0; padding: 0; background: transparent; }
+  .step .num, .step-title, .step-help, .step-note { display: none; }
+  #step-2 { display: none; }
+  #step-4 { grid-column: 1 / -1; }
+  .step-body, .step-actions { display: contents; }
+  .steps .btn { width: 100%; min-height: 3rem; }
+  #step-4 .step-body { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; width: 100%; }
+  .status { padding: 0.55rem 0.8rem; font-size: 0.92rem; }
   .week { grid-template-columns: 1fr; }
-  .weekbar .nav-btn { padding: 0 0.6rem; }
+  .day > header { padding: 0.45rem 0.5rem 0.45rem 0.8rem; }
+  .item { min-height: 2.5rem; }
 }
 
 /* ── 인쇄물 (식단표·장보기 목록). 화면에서는 숨기고, 사진 저장 때는 .capture 안에서 보인다 ── */
