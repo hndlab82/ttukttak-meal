@@ -919,6 +919,7 @@
     S.plans = data.plans || {};
     Object.keys(S.plans).forEach(function (w) { normalizePlan(S.plans[w]); });
     if (data.settings) S.settings = normalizeSettings(data.settings);
+    S.settings.welcomed = true;
     if (Array.isArray(data.excluded)) S.excluded = new Set(data.excluded);
     if (Array.isArray(data.custom)) S.custom = data.custom;
     if (Array.isArray(data.logs)) S.logs = data.logs;
@@ -1227,9 +1228,18 @@
   }
   function closeSheet() {
     var dlg = $('sheet');
+    var prev = S.sheet;
     if (dlg.open) dlg.close();
     S.sheet = null;
     releaseFocus();
+    backToWelcome(prev);
+  }
+  // 처음 안내에서 백업 불러오기를 골랐다가 취소하면 다시 처음 안내로
+  function backToWelcome(prev) {
+    if (prev && prev.type === 'restore' && prev.fromWelcome && !Object.keys(S.plans).length) {
+      S.settings.welcomed = false;
+      setTimeout(openWelcome, 0);
+    }
   }
   // 창을 닫으면 브라우저가 초점을 누른 메뉴로 돌려놓는데, 그러면 − 버튼이 계속 보인다. 마우스로 연 경우엔 초점을 푼다.
   var usingKeyboard = false; // 마지막 조작이 키보드(Tab 등)였는지
@@ -1480,7 +1490,7 @@
   }
 
   function openRestoreSheet(data, filename) {
-    S.sheet = { type: 'restore', data: data };
+    S.sheet = { type: 'restore', data: data, fromWelcome: !Object.keys(S.plans).length };
     var weeks = Object.keys(data.plans || {}).length;
     $('sheet').innerHTML =
       '<div class="sheet-inner">' +
@@ -1745,7 +1755,7 @@
     enterHandler(e, function () { if (S.sheet && S.sheet.type === 'menu') rename(S.sheet.i, S.sheet.k, $('sheet-rename').value); });
   });
   sheet.addEventListener('cancel', function (e) { if (S.sheet && S.sheet.type === 'welcome') e.preventDefault(); }); // Esc로 처음 안내 닫기 막기
-  sheet.addEventListener('close', function () { S.sheet = null; releaseFocus(); });
+  sheet.addEventListener('close', function () { var prev = S.sheet; S.sheet = null; releaseFocus(); backToWelcome(prev); });
 
   $('settings-form').addEventListener('submit', function (e) { e.preventDefault(); });
   onEnter($('new-rice'), function () { addFixed('rices', 'new-rice'); });
@@ -1831,6 +1841,7 @@
       '<p class="help notice">더 좋은 식단 추천을 위해 <b>사용 기록</b>(어떤 메뉴를 무엇으로 바꿨는지 등)을 모아요. 이름·전화번호 같은 개인정보는 모으지 않아요. 원하지 않으면 나중에 <b>백업·지우기</b>에서 끌 수 있어요.</p>' +
       '<button type="button" class="btn primary wide-btn" data-sheet="wl-start">시작하기</button>' +
       '<p class="help">나머지(요일, 반찬 가짓수, 매일 나오는 밥·김치)는 나중에 <b>식단 설정</b>에서 바꿀 수 있어요.</p>' +
+      '<label class="btn wide-btn file-btn wl-import">예전에 쓰던 백업 파일이 있어요<input type="file" id="wl-import" accept=".json,application/json" hidden></label>' +
       '</div>';
     showSheet();
   }
@@ -1843,6 +1854,11 @@
     closeSheet();
     generateWeek();
   }
+  sheet.addEventListener('change', function (e) {
+    if (e.target.id !== 'wl-import') return;
+    var file = e.target.files && e.target.files[0];
+    if (file) { S.settings.welcomed = true; readBackup(file); }
+  });
   sheet.addEventListener('click', function (e) {
     if (!S.sheet || S.sheet.type !== 'welcome') return;
     var a = e.target.closest('[data-sheet]');
