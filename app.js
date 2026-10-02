@@ -104,6 +104,10 @@
     undo: null
   };
   S.settings = normalizeSettings(load(KEY.settings, {}));
+  (function rememberSource() {
+    var m = /[?&]from=([A-Za-z0-9_-]{1,30})/.exec(location.search);
+    if (m && !S.settings.source) { S.settings.source = m[1]; save(KEY.settings, S.settings); }
+  })();
   Object.keys(S.plans).forEach(function (w) { normalizePlan(S.plans[w]); });
 
   // 예전 형식의 설정·식단도 읽을 수 있게 맞춘다
@@ -204,7 +208,7 @@
       before_value: entry.before_value,
       after_value: entry.after_value,
       reason: entry.reason,
-      detail: entry.detail,
+      detail: S.settings.source ? Object.assign({ from: S.settings.source }, entry.detail || {}) : entry.detail,
       rules_version: RULES.version,
       client_created_at: entry.created_at
     });
@@ -463,6 +467,7 @@
       }
     });
     persist();
+    S.reveal = true;
     render();
     if (prev) toast('새로 만들었어요.', '되돌리기', undo);
   }
@@ -1153,6 +1158,16 @@
       last.list.push({ e: e, i: i });
     });
     grid.style.setProperty('--cols', byDate.length);
+    // 식단을 새로 만들었을 때만: 요일 카드가 하나씩, 메뉴가 위에서부터 채워지는 효과
+    grid.classList.remove('reveal');
+    if (S.reveal) {
+      S.reveal = false;
+      void grid.offsetWidth;
+      grid.classList.add('reveal');
+      clearTimeout(renderWeek.revealTimer);
+      renderWeek.revealTimer = setTimeout(function () { grid.classList.remove('reveal'); }, 2500);
+    }
+    var dayIdx = 0;
     grid.innerHTML = byDate.map(function (g) {
       var dow = parse(g.date).getDay();
       var off = g.list.every(function (x) { return x.e.off; });
@@ -1169,7 +1184,10 @@
         var add = '<li class="add-row"><button type="button" class="add-btn" data-act="add-row" data-i="' + x.i + '">+ 추가</button></li>';
         return '<section class="meal">' + headLine + '<ul class="menu-list">' + rows + add + '</ul></section>';
       }).join('');
-      return '<article class="day' + (dow === 6 ? ' sat' : dow === 0 ? ' sun' : '') + '">' + head + meals + '</article>';
+      var d = dayIdx++;
+      var j = 0;
+      meals = meals.replace(/<li /g, function () { return '<li style="--j:' + (j++) + '" '; });
+      return '<article class="day' + (dow === 6 ? ' sat' : dow === 0 ? ' sun' : '') + '" style="--d:' + d + '">' + head + meals + '</article>';
     }).join('');
   }
 
